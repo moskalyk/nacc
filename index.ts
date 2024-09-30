@@ -1,12 +1,12 @@
 import { sequence } from '0xsequence';
 import { EventEmitter } from 'events';
-import crypto from 'crypto'; // Import the built-in crypto module
+import crypto from 'crypto';
 
 interface BootOptions {
     walletAddress: string;
     message: string;
     signature: string;
-    chainId: string; // chainId should be a number
+    chainId: string; 
 }
 
 class Mutual extends EventEmitter {
@@ -36,6 +36,11 @@ class Mutual extends EventEmitter {
     on(eventName: string, listener: (...args: any[]) => void) {
         super.on(eventName, listener);
         return this;
+    }
+
+    load(modules: any) {
+        this.modules.push(...modules)
+        return this
     }
 
     listen() {
@@ -80,18 +85,15 @@ function computeDigest(moduleObject: any): string {
     try {
         const mutual = new Mutual();
 
-        const ModuleContract1 = {
-            uniqueId: 'uniqueness',
+        const ModuleContract1: any = {
+            digest: null,
             mint: (to: string, amount: number) => {
                 return `minting to ${to} ${amount}`;
             }
         };
 
-        // Compute the unique digest for ModuleContract1
         const digest = computeDigest(ModuleContract1);
-        console.log('Computed Digest:', digest);
-
-        mutual.modules.push(ModuleContract1); // Add the module to the mutual object
+        ModuleContract1.digest = digest;
 
         const chainId = 'polygon'; // Polygon's chainId
         const walletAddress = "0x2fa0b551fdFa31a4471c1C52206fdb448ad997d1";
@@ -105,6 +107,7 @@ function computeDigest(moduleObject: any): string {
                 message: message,
                 chainId: chainId
             }))
+            .load([ModuleContract1])
             .on('*', (block, transact) => {
                 if (block.blockNumber === 4) {
                     transact({
