@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "0xsequence": "^2.0.10"
+    "0xsequence": "^2.0.10",
+    "@noble/ed25519": "^2.1.0"
   }
 }

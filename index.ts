@@ -1,11 +1,12 @@
 import { sequence } from '0xsequence';
 import { EventEmitter } from 'events';
+import crypto from 'crypto'; // Import the built-in crypto module
 
 interface BootOptions {
     walletAddress: string;
     message: string;
     signature: string;
-    chainId: string; // Change chainId to number
+    chainId: string; // chainId should be a number
 }
 
 class Mutual extends EventEmitter {
@@ -23,7 +24,7 @@ class Mutual extends EventEmitter {
 
         return api.isValidMessageSignature(options).then((result) => {
             console.log('Signature valid:', result.isValid);
-        
+
             if (result.isValid) {
                 return this;
             } else {
@@ -40,20 +41,26 @@ class Mutual extends EventEmitter {
     listen() {
         const self = this;
         setInterval(() => {
-            this.emit('*', { blockNumber: ++this.block }, async (transact: any) => { // dx receiver
+            this.emit('*', { blockNumber: ++this.block }, async (transact: any) => {
                 console.log('sending a block');
-                const result = await transact.call(...transact.params);
-                self.emit('record', result);
+                // Extract the call, digest, via, and params from transact
+                const { call, digest, params } = transact;
+                if (typeof call === 'string' && this.modules[0] && typeof this.modules[0][call] === 'function') {
+                    const result = await this.modules[0][call](...params);
+                    self.emit('record', result);
+                } else {
+                    console.error('Invalid call or method not found on module');
+                }
             });
         }, 2000);
 
         setInterval(() => {
-            this.emit('forward', { canU: true }, { 
+            this.emit('forward', { can: true }, {
                 a: (request: any) => {
                     console.log('Forwarding request:', request);
                     this.emit('record', 'This is a record example');
-                }, 
-                to: 'aw' 
+                },
+                to: 'aw'
             });
         }, 10000);
 
@@ -61,33 +68,50 @@ class Mutual extends EventEmitter {
     }
 }
 
+// Function to compute digest using Node.js crypto module
+function computeDigest(moduleObject: any): string {
+    const moduleString = JSON.stringify(moduleObject); // Convert the object to a JSON string
+    const hash = crypto.createHash('sha512'); // Create a SHA-512 hash
+    hash.update(moduleString); // Update the hash with the module string
+    return hash.digest('hex'); // Return the hash as a hex string
+}
+
 (async () => {
     try {
         const mutual = new Mutual();
-        const ModuleContract1 = { // to be c
-            mint: (to: string, amount: number) => { 
-                return `minting to ${to} ${amount}`
+
+        const ModuleContract1 = {
+            uniqueId: 'uniqueness',
+            mint: (to: string, amount: number) => {
+                return `minting to ${to} ${amount}`;
             }
         };
-        
-        const chainId = 'polygon'; // Polygon's chainId is 137
+
+        // Compute the unique digest for ModuleContract1
+        const digest = computeDigest(ModuleContract1);
+        console.log('Computed Digest:', digest);
+
+        mutual.modules.push(ModuleContract1); // Add the module to the mutual object
+
+        const chainId = 'polygon'; // Polygon's chainId
         const walletAddress = "0x2fa0b551fdFa31a4471c1C52206fdb448ad997d1";
         const message = "Hi, please sign this message";
         const signature =
-        "0x000501032a44625bec3b842df681db00a92a74dda5e42bcf0203596af90cecdbf9a768886e771178fd5561dd27ab005d0001000183d971056b1eca1bcc7289b9a6926677c5b07db4197925346367f61f2d09c732760719a91722acee0b24826f412cb69bd2125e48f231705a5be33d1f5523f9291c020101c50adeadb7fe15bee45dcb820610cdedcd314eb0030002f19915df00d669708608502d3011a09948b32674d6e443202a2ba884a4dcd26c2624ff33a8ee9836cc3ca2fbb8d3aa43382047b73d21646cb66cc2916076c1331c02";
-        
+            "0x000501032a44625bec3b842df681db00a92a74dda5e42bcf0203596af90cecdbf9a768886e771178fd5561dd27ab005d0001000183d971056b1eca1bcc7289b9a6926677c5b07db4197925346367f61f2d09c732760719a91722acee0b24826f412cb69bd2125e48f231705a5be33d1f5523f9291c020101c50adeadb7fe15bee45dcb820610cdedcd314eb0030002f19915df00d669708608502d3011a09948b32674d6e443202a2ba884a4dcd26c2624ff33a8ee9836cc3ca2fbb8d3aa43382047b73d21646cb66cc2916076c1331c02";
+
         (await mutual.boot({
-                signature: signature,          
-                walletAddress: walletAddress,      
-                message: message,             
-                chainId: chainId         
+                signature: signature,
+                walletAddress: walletAddress,
+                message: message,
+                chainId: chainId
             }))
             .on('*', (block, transact) => {
-                if (block.blockNumber == 4) {
+                if (block.blockNumber === 4) {
                     transact({
-                        call: ModuleContract1.mint,
-                        via: [], // todo
-                        params: ['~milbyt-moszod', 1]
+                        call: 'mint',  // Pass the method name as a string
+                        digest: digest, // Use the computed digest
+                        via: [], // Handle `via` logic as per your requirements
+                        params: ['~milbyt-moszod', 1] // Parameters to be passed to the method
                     });
                 } else {
                     console.log(block);
@@ -99,4 +123,4 @@ class Mutual extends EventEmitter {
     } catch (error) {
         console.error('Error during boot:', error);
     }
-})()
+})();
