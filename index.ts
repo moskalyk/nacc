@@ -1,6 +1,6 @@
-import { sequence } from '0xsequence';
-import { EventEmitter } from 'events';
 import crypto from 'crypto';
+import { EventEmitter } from 'events';
+import { sequence } from '0xsequence';
 
 interface BootOptions {
     walletAddress: string;
@@ -73,7 +73,7 @@ class Mutual extends EventEmitter {
     }
 }
 
-// Function to compute digest using Node.js crypto module
+// Function to compute digest of a Module Contract
 function computeDigest(moduleObject: any): string {
     const moduleString = JSON.stringify(moduleObject); // Convert the object to a JSON string
     const hash = crypto.createHash('sha512'); // Create a SHA-512 hash
@@ -86,7 +86,6 @@ function computeDigest(moduleObject: any): string {
         const mutual = new Mutual();
 
         const ModuleContract1: any = {
-            digest: null,
             mint: (to: string, amount: number) => {
                 return `minting to ${to} ${amount}`;
             }
@@ -98,8 +97,7 @@ function computeDigest(moduleObject: any): string {
         const chainId = 'polygon'; // Polygon's chainId
         const walletAddress = "0x2fa0b551fdFa31a4471c1C52206fdb448ad997d1";
         const message = "Hi, please sign this message";
-        const signature =
-            "0x000501032a44625bec3b842df681db00a92a74dda5e42bcf0203596af90cecdbf9a768886e771178fd5561dd27ab005d0001000183d971056b1eca1bcc7289b9a6926677c5b07db4197925346367f61f2d09c732760719a91722acee0b24826f412cb69bd2125e48f231705a5be33d1f5523f9291c020101c50adeadb7fe15bee45dcb820610cdedcd314eb0030002f19915df00d669708608502d3011a09948b32674d6e443202a2ba884a4dcd26c2624ff33a8ee9836cc3ca2fbb8d3aa43382047b73d21646cb66cc2916076c1331c02";
+        const signature = "0x000501032a44625bec3b842df681db00a92a74dda5e42bcf0203596af90cecdbf9a768886e771178fd5561dd27ab005d0001000183d971056b1eca1bcc7289b9a6926677c5b07db4197925346367f61f2d09c732760719a91722acee0b24826f412cb69bd2125e48f231705a5be33d1f5523f9291c020101c50adeadb7fe15bee45dcb820610cdedcd314eb0030002f19915df00d669708608502d3011a09948b32674d6e443202a2ba884a4dcd26c2624ff33a8ee9836cc3ca2fbb8d3aa43382047b73d21646cb66cc2916076c1331c02";
 
         (await mutual.boot({
                 signature: signature,
@@ -126,4 +124,4 @@ function computeDigest(moduleObject: any): string {
     } catch (error) {
         console.error('Error during boot:', error);
     }
-})();
+})()
