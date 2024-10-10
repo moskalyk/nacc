@@ -1,0 +1,1 @@
+emcc main.c -o main.js -s EXPORTED_FUNCTIONS="['_update_throughput','_my_c_function','_get_delayed_response','_free_delayed_response','_process_json_response', '_increment_message_count']" -s EXTRA_EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]' -s 'ASYNCIFY' -s 'WASM=1' --preload-file .

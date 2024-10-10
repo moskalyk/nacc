@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebAssembly Networking Example</title>
+</head>
+<body>
+    <h1>WebAssembly Networking</h1>
+    <script>
+        function parseDataObject(str) {
+            const regex = /\{\s*"data"\s*:\s*\[(.*?)\]\s*\}/;
+            const match = str.match(regex);
+
+            if (match && match[1]) {
+                // Split the captured data into an array of values
+                const dataArray = match[1].split(',').map(item => item.trim());
+                return dataArray.map(value => {
+                    // Convert values to numbers if possible, otherwise keep as strings
+                    return isNaN(value) ? value : Number(value);
+                });
+            } else {
+                throw new Error('Invalid format: could not find data array in the input string');
+            }
+        }
+
+        var Module = {
+            onRuntimeInitialized: function() {
+                Module._my_c_function(); // Call a C function for throughput analysis
+                setTimeout(() => {
+                    Module.websocket = new WebSocket('ws://127.0.0.1:8080');
+                    Module.websocket.onopen = function() {
+                        console.log('Connected to WebSocket server');
+                    };
+                    Module.websocket.onmessage = function(event) {
+                        Module.ccall('process_json_response', 'void', ['string'], [event.data]);
+                        console.log(parseDataObject(UTF8ToString(Module._get_delayed_response())));
+                    };
+                }, 1000)
+            }
+        }
+    </script>
+    <script src="main.js"></script>
+</body>
+</html>
