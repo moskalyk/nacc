@@ -1,5 +1,35 @@
 type EventCallback = (data: any, transact?: (payload: any) => void) => void;
 
+class UniqueObjectFilter {
+  static cache = new Set();
+  static timers = new Map();
+
+  static acceptObject(object: any) {
+    // Convert the object to a JSON string for comparison
+    const objectKey = JSON.stringify(object);
+
+    // If the object is already in the cache, return null
+    if (this.cache.has(objectKey)) {
+      return null;
+    }
+
+    // Add the new object key to the cache
+    this.cache.add(objectKey);
+
+    // Set a timer to remove the object key from the cache after 2 seconds
+    const timer = setTimeout(() => {
+      this.cache.delete(objectKey);
+      this.timers.delete(objectKey);
+    }, 1000);
+
+    // Store the timer reference to manage it if needed
+    this.timers.set(objectKey, timer);
+
+    // Return the original object since it's unique
+    return object;
+  }
+}
+
 export default class RelaySystem {
 
     private peerConnections: { [key: string]: RTCPeerConnection } = {};
@@ -44,6 +74,19 @@ export default class RelaySystem {
         this.eventHandlers[eventName].push(callback);
     }
 
+    public transact(requestArguments: any) {
+      var self = this;
+      console.log(requestArguments)
+      if(requestArguments.via != undefined){
+        console.log('gunna forward')
+        this.triggerEvent('forward', { message: requestArguments.params, peers: [requestArguments.via,window.location.pathname.substring(1)], seq: 0 }, (payload: any) => {
+            self.forwardMessage(payload.peers[0], payload);
+        });
+      } else {
+        console.log('running locally')
+      }
+    }
+ 
     private triggerEvent(eventName: string, data: any, transact?: (payload: any) => void) {
         const handlers = this.eventHandlers[eventName] || [];
         handlers.forEach((handler) => handler(data, transact));
@@ -80,17 +123,6 @@ export default class RelaySystem {
         }
     };
 
-    // Helper methods to track message processing status
-    private processedMessages: Set<string> = new Set();
-
-    private hasMessageBeenProcessed(origin: string, message: number): boolean {
-        return this.processedMessages.has(`${origin}-${message}`);
-    }
-
-    private markMessageAsProcessed(origin: string, message: number): void {
-        this.processedMessages.add(`${origin}-${message}`);
-    }
-
     private setupPeerConnection(remoteClientId: any, peerConnection: any) {
         this.peerConnections[remoteClientId] = peerConnection;
         var self  = this;
@@ -111,26 +143,29 @@ export default class RelaySystem {
           console.log('Data channel opened on receiver side for client:', remoteClientId);
 
           receivedChannel.onmessage = (e: any) => {
-            let { message, peers, origin } = JSON.parse(e.data);
+            let { message, peers, origin, seq } = JSON.parse(e.data);
 
             console.log('origin', origin)
             console.log('Received:', message, 'for peers', peers);
 
-                let interval = setTimeout(() => {
-            if (!self.hasMessageBeenProcessed(origin, message)) {
-                self.markMessageAsProcessed(origin, message);
-                message += 1;  // Increment the message
+            let interval = setTimeout(() => {
+              // if (!self.hasMessageBeenProcessed(origin, message)) {
+                  // self.markMessageAsProcessed(origin, message);
+                  // message += 1;  // Increment the message
 
-                if (peers[message]) {
-                    self.triggerEvent('forward', { message, peers: peers.slice(1,peers.length) }, (payload: any) => {
-                        clearInterval(interval);
-                        self.forwardMessage(peers[message], payload);
-                    });
-                }
-            } else {
-                clearInterval(interval);
-                console.log("Final destination reached:", message);
-            }
+                  if (peers[seq]) {
+                      self.triggerEvent('forward', { message, peers: peers.slice(1,peers.length) }, (payload: any) => {
+                          clearInterval(interval);
+                          seq=Number(seq)+1
+                          self.forwardMessage(peers[seq], payload);
+                      });
+                  } else {
+                    self.triggerEvent('receipt', UniqueObjectFilter.acceptObject({ data: e.data }))
+                  }
+              // } else {
+                  // clearInterval(interval);
+                  // console.log("Final destination reached:", message);
+              // }
             }, 100);
         }
     }
@@ -170,8 +205,11 @@ export default class RelaySystem {
     };
 
     public async forwardMessage(nextPeerId: any, data: any) {
-        console.log(`Forwarding message: ${JSON.stringify(data)} to peer ${nextPeerId}`);
         // Forward the message to the next client in the chain
-        this.dataChannels[nextPeerId].send(JSON.stringify(data));
+        console.log(`Forwarding message: ${JSON.stringify(data)} to peer ${nextPeerId}`);
+        const res = UniqueObjectFilter.acceptObject(data)
+        if(res){
+          this.dataChannels[nextPeerId].send(JSON.stringify(res));
+        } 
     };
 }
