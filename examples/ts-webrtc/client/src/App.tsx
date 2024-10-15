@@ -28,7 +28,7 @@ const WebRTCComponent = () => {
 
   const callTransaction = () => {
     rs.transact({
-        call: 'mint',  // Pass the method name as a string
+        call: 'sendMessage',  // Pass the method name as a string
         // digest: digest, // Use the computed digest
         via: clientIDs[0], // Handle `via` logic as per your requirements
         params: [window.location.pathname.substring(1), 0] // Parameters to be passed to the method
